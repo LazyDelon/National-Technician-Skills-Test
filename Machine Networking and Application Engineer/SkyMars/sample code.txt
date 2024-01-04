@@ -1,0 +1,108 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace WindowsFormsApp1
+{
+    public partial class Form1 : Form
+    {
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+
+        /// <summary>
+        /// 傳送訊息
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <param name="tmpTcpClient"></param>
+       
+        public void SendingMessage(string msg, TcpClient tmpTcpClient)
+        {
+            NetworkStream ns = tmpTcpClient.GetStream();
+            if (ns.CanWrite)
+            {
+                byte[] msgByte = Encoding.UTF8.GetBytes(msg);
+                ns.Write(msgByte, 0, msgByte.Length);
+            }
+        }
+        
+        /// <summary>
+        /// 接收訊息
+        /// </summary>
+        /// <param name="tmpTcpClient">TcpClient</param>
+        /// <returns>接收到的訊息</returns>
+        public string ReceiveMessage(TcpClient tmpTcpClient)
+        {
+            string receiveMsg = string.Empty;
+            byte[] receiveBytes = new byte[tmpTcpClient.ReceiveBufferSize];
+            int numberOfBytesRead = 0;
+            NetworkStream ns = tmpTcpClient.GetStream();
+            if (ns.CanRead)
+            {
+                do
+                {
+                    numberOfBytesRead = ns.Read(receiveBytes, 0, tmpTcpClient.ReceiveBufferSize);
+                    receiveMsg += UTF8Encoding.UTF8.GetString(receiveBytes, 0, numberOfBytesRead);
+                }
+                while (numberOfBytesRead > 0) ;
+            }              
+            return receiveMsg;
+        }
+
+        private void RequestButton_Click(object sender, EventArgs e)
+        {
+            //宣告變數
+            ResponseTimelabel.Text = "";
+            int tick1 = 0, tick2 = 0;//計算時間
+            // 建立 TCP/IP物件
+            TcpClient tcpClient = new TcpClient();
+            try
+            {
+                //先建立IPAddress物件,IP為欲連線機之IP
+                IPAddress ipAddress = IPAddress.Parse(txtIp.Text);
+                //建立IPEndPoint
+                IPEndPoint ipEndPoint = new IPEndPoint(ipAddress,
+                int.Parse(txtPort.Text));
+                //透過TCP建立
+                tcpClient.Connect(ipEndPoint);             
+                //連線成功
+                if (tcpClient.Connected)
+                {
+                    //開始時間
+                    tick1 = Environment.TickCount;
+                    //整理資料
+                    if (SendingTextBox.Text[SendingTextBox.Text.Length - 1] == '\n')
+                        SendingTextBox.Text = SendingTextBox.Text.Substring(
+                        0, SendingTextBox.Text.Length - 1);
+
+                    //傳送xml資料
+                    SendingMessage(SendingTextBox.Text, tcpClient);
+
+                    //接收回傳資料
+                    string RecvString = ReceiveMessage(tcpClient);
+                    ReceivedTextBox.Text = RecvString;
+
+                    //計算回傳時間差
+                    tick2 = Environment.TickCount - tick1;
+                    ResponseTimelabel.Text = tick2.ToString();
+                }
+                else
+                    ReceivedTextBox.Text = "連線失敗!";
+            }
+            catch(Exception ex)
+            {
+                ReceivedTextBox.Text = ex.Message;
+            }
+        }
+    }
+}
